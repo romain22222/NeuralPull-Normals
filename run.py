@@ -85,13 +85,22 @@ class Runner:
             loss = loss_sdf
 
             if self.normal_weight > 0.0 and self.dataset_np.normals_gt is not None:
-                point_gt_sample = point_gt[torch.randint(0, point_gt.shape[0], (batch_size,))]
+                normal_index = torch.randint(
+                    0,
+                    self.dataset_np.normals_gt.shape[0],
+                    (batch_size,),
+                    device=self.dataset_np.normals_gt.device,
+                )
+                if self.dataset_np.normal_points is not None:
+                    point_gt_sample = self.dataset_np.normal_points[normal_index]
+                else:
+                    point_gt_sample = point_gt[
+                        torch.randint(0, point_gt.shape[0], (batch_size,), device=point_gt.device)
+                    ]
                 point_gt_sample.requires_grad_(True)
                 grad_gt = self.sdf_network.gradient(point_gt_sample).squeeze()
                 grad_gt_norm = F.normalize(grad_gt, dim=1)
-                normals_batch = self.dataset_np.normals_gt[
-                    torch.randint(0, self.dataset_np.normals_gt.shape[0], (batch_size,))
-                ]
+                normals_batch = self.dataset_np.normals_gt[normal_index]
                 normals_batch = F.normalize(normals_batch, dim=1)
                 loss_normal = (1.0 - torch.abs((grad_gt_norm * normals_batch).sum(dim=-1))).mean()
                 loss = loss + self.normal_weight * loss_normal
